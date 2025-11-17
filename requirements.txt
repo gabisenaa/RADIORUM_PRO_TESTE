@@ -1,0 +1,5 @@
+Flask>=2.0
+pydicom[gdcmsupport]>=2.3
+numpy>=1.24
+scikit-image>=0.19
+gunicorn>=20.0

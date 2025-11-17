@@ -1,15 +1,13 @@
-\
-        import os, tempfile, zipfile, json, uuid, math
-        from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory
-        import numpy as np
-        import pydicom
-        from skimage import measure
-        from pathlib import Path
-
-        BASE = Path(__file__).resolve().parent
-        UPLOADS = BASE / "uploads"
-        DATA = BASE / "data"
-        MESH = BASE / "mesh"
+import os, tempfile, zipfile, json, uuid, math
+from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory
+import numpy as np
+import pydicom
+from skimage import measure
+from pathlib import Path
+BASE = Path(__file__).resolve().parent
+UPLOADS = BASE / "uploads"
+DATA = BASE / "data"
+MESH = BASE / "mesh"
         for d in (UPLOADS, DATA, MESH):
             d.mkdir(exist_ok=True)
 

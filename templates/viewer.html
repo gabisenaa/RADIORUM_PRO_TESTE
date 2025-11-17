@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RADIORUM Pro — Viewer</title>
+  <style>
+    :root{ --yellow:#FFD700; --black:#000; --gray:#E0E0E0; }
+    body,html{ margin:0; height:100%; font-family:Inter, Arial, sans-serif; background:var(--gray); color:var(--black); }
+    header{ background:var(--black); color:var(--yellow); padding:10px 14px; display:flex; gap:12px; align-items:center; }
+    .logo{ width:36px;height:36px;background:var(--yellow);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--black) }
+    #container{ width:100%; height:calc(100vh - 68px); position:relative; }
+    #controls{ position:absolute; left:12px; top:72px; z-index:6; background:rgba(255,255,255,0.95); padding:10px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.12); }
+    .btn{ background:var(--black); color:var(--yellow); border:none; padding:6px 10px; border-radius:6px; cursor:pointer }
+    @media (max-width:600px){ #controls{ left:8px; top:90px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">R</div>
+    <div style="font-weight:700">RADIORUM Pro</div>
+    <div style="margin-left:auto"><a href="/" class="btn">⬅ Upload</a></div>
+  </header>
+  <div id="container">
+    <div id="controls">
+      <div><label>Threshold: <span id="thval">0.50</span></label></div>
+      <input id="threshold" type="range" min="0" max="1" step="0.01" value="0.5" style="width:220px">
+      <div style="margin-top:8px">
+        <label>Quality:</label>
+        <select id="quality"><option value="low">Low (fast)</option><option value="med" selected>Medium</option><option value="high">High</option></select>
+        <button id="apply" class="btn">Apply</button>
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:#333">Tip: start with Low for mobile.</div>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/three.min.js"></script>
+  <script>
+    const caseId = "{{case_id}}";
+    const container = document.getElementById('container');
+    const meshEndpoint = `/mesh/${caseId}.json`;
+    let scene, camera, renderer, mesh;
+    function init(){
+      scene = new THREE.Scene();
+      const w = window.innerWidth, h = window.innerHeight;
+      camera = new THREE.PerspectiveCamera(60, w/h, 0.1, 10000);
+      camera.position.set(0,0,200);
+      renderer = new THREE.WebGLRenderer({antialias:true});
+      renderer.setSize(w,h);
+      container.appendChild(renderer.domElement);
+      const light = new THREE.DirectionalLight(0xffffff,1);
+      light.position.set(1,1,1).normalize();
+      scene.add(light); scene.add(new THREE.AmbientLight(0x444444));
+      window.addEventListener('resize', ()=>{ camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+      loadMesh(0.5, document.getElementById('quality').value);
+    }
+    async function fetchMesh(t,q){
+      const url = meshEndpoint + '?threshold=' + t + '&quality=' + q;
+      const resp = await fetch(url);
+      if(!resp.ok){ const tx = await resp.json().catch(()=>null); alert('Failed to load mesh: '+(tx&&tx.error?tx.error:resp.statusText)); return null; }
+      return await resp.json();
+    }
+    async function loadMesh(t,q){
+      const data = await fetchMesh(t,q);
+      if(!data) return;
+      addMesh(data);
+    }
+    function addMesh(data){
+      if(mesh){ scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); }
+      const verts = data.vertices;
+      const faces = data.faces;
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(verts.length * 3);
+      for(let i=0;i<verts.length;i++){ positions[i*3+0]=verts[i][0]; positions[i*3+1]=verts[i][1]; positions[i*3+2]=verts[i][2]; }
+      const idx = (verts.length > 65535) ? Uint32Array : Uint16Array;
+      const indices = new idx(faces.length * 3);
+      for(let i=0;i<faces.length;i++){ indices[i*3+0]=faces[i][0]; indices[i*3+1]=faces[i][1]; indices[i*3+2]=faces[i][2]; }
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions,3));
+      geometry.setIndex(new THREE.BufferAttribute(indices,1));
+      geometry.computeVertexNormals();
+      const material = new THREE.MeshStandardMaterial({metalness:0.1, roughness:0.8});
+      mesh = new THREE.Mesh(geometry, material);
+      geometry.computeBoundingBox();
+      const box = geometry.boundingBox;
+      const center = new THREE.Vector3(); box.getCenter(center);
+      mesh.position.sub(center);
+      scene.add(mesh);
+      fitCamera(camera, mesh, 1.2);
+      animate();
+    }
+    function fitCamera(camera,obj,offset=1.25){
+      const bb = new THREE.Box3().setFromObject(obj);
+      const center = new THREE.Vector3(); bb.getCenter(center);
+      const size = bb.getSize(new THREE.Vector3()); const maxDim = Math.max(size.x,size.y,size.z);
+      const fov = camera.fov * (Math.PI/180); let camZ = Math.abs(maxDim/2 / Math.tan(fov/2)) * offset;
+      camera.position.set(center.x, center.y, camZ + center.z); camera.lookAt(center); camera.updateProjectionMatrix();
+    }
+    function animate(){ requestAnimationFrame(animate); if(mesh) mesh.rotation.y += 0.002; renderer.render(scene,camera); }
+    document.getElementById('threshold').addEventListener('input', (e)=>{ document.getElementById('thval').innerText = parseFloat(e.target.value).toFixed(2); });
+    document.getElementById('apply').addEventListener('click', async ()=>{ const t=document.getElementById('threshold').value; const q=document.getElementById('quality').value; document.getElementById('apply').disabled=true; await loadMesh(t,q); document.getElementById('apply').disabled=false; });
+    init();
+  </script>
+</body>
+</html>

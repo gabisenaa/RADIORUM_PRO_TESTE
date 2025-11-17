@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RADIORUM Pro — Upload</title>
+  <style>
+    :root{ --yellow:#FFD700; --black:#000; --gray:#E0E0E0; }
+    body{ margin:0; font-family:Inter, Arial, sans-serif; background:var(--gray); color:var(--black); }
+    header{ background:var(--black); color:var(--yellow); padding:12px 16px; display:flex; gap:12px; align-items:center; }
+    .logo{ width:44px;height:44px;background:var(--yellow);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--black) }
+    main{ padding:16px; }
+    .card{ background:#fff;border-radius:10px;padding:12px; box-shadow:0 4px 14px rgba(0,0,0,0.08); max-width:960px; margin:10px auto; }
+    .upload-row{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    input[type=file]{ padding:8px; }
+    button.primary{ background:var(--black); color:var(--yellow); border:none; padding:10px 14px; border-radius:8px; cursor:pointer }
+    .cases{ margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+    a.case{ padding:8px 10px; background:var(--black); color:var(--yellow); text-decoration:none; border-radius:8px; font-family:monospace; }
+    @media (max-width:600px){ .upload-row{ flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">R</div>
+    <div>
+      <div style="font-weight:700">RADIORUM Pro</div>
+      <div style="font-size:13px">Light & fast DICOM 3D viewer</div>
+    </div>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Upload DICOM series (ZIP or multiple files)</h2>
+      <form method="post" action="/upload" enctype="multipart/form-data">
+        <div class="upload-row">
+          <label>ZIP: <input type="file" name="zipfile" accept=".zip"></label>
+          <div style="padding:8px">or</div>
+          <label>Select files: <input type="file" name="files" multiple></label>
+        </div>
+        <p style="margin-top:12px"><button class="primary" type="submit">Upload & Open</button></p>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Existing cases</h3>
+      <div id="cases">Loading...</div>
+    </div>
+  </main>
+  <script>
+    async function loadCases(){ const r=await fetch('/cases'); const j=await r.json(); const cont=document.getElementById('cases'); cont.innerHTML=''; if(!j.cases||j.cases.length===0){ cont.innerText='Nenhum caso salvo.'; return; } j.cases.forEach(c=>{ const a=document.createElement('a'); a.className='case'; a.href='/viewer/'+c; a.innerText=c.slice(0,8); cont.appendChild(a); }); }
+    loadCases();
+  </script>
+</body>
+</html>

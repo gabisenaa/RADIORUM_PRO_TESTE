@@ -136,21 +136,22 @@ def upload():
             out = os.path.join(tmp, f.filename)
             f.save(out)
             files.append(out)
-    try:
-        volume, spacing = read_dicom_series(files)
-    except Exception as e:
-        return f"Failed to read DICOM: {e}", 400
-    case_id = str(uuid.uuid4())
-    # save compressed case
-    np.savez_compressed(DATA / f"{case_id}.npz", volume=volume, spacing=spacing)
-    # generate a quick low-res mesh for immediate viewing
-    vol_low, sp_low = resample_to_target(volume, spacing, target_max_dim=96)
-    try:
+   try:
         verts, faces = generate_mesh(vol_low, sp_low, threshold=0.5)
     except Exception as e:
-        # fallback: try tiny target
+        print(f"Marching Cubes L-1 failed for {case_id}: {e}. Retrying with Tiny and low threshold...")
+        # Fallback 1: Dimensões menores (64)
         vol_tiny, sp_tiny = resample_to_target(volume, spacing, target_max_dim=64)
-        verts, faces = generate_mesh(vol_tiny, sp_tiny, threshold=0.5)
+        
+        try:
+            # Fallback 2: Tente um threshold mais baixo/alto (0.2 ou 0.8) para garantir que alguma superfície seja encontrada
+            verts, faces = generate_mesh(vol_tiny, sp_tiny, threshold=0.2)
+        except Exception as e_final:
+            # Se falhar novamente, retorne um erro específico (não apenas o 500)
+            print(f"Marching Cubes L-2 FAILED completely: {e_final}")
+            # Removendo arquivos temporários (opcional)
+            (DATA / f"{case_id}.npz").unlink(missing_ok=True)
+            return f"Failed to generate 3D mesh: {e_final}", 400
     # apply clustering decimation tuned for quick response
     verts_c, faces_c = vertex_clustering(verts, faces, cluster_size=max( max(sp_low), 1.0 ) * 1.5 )
     mesh_obj = mesh_to_compact_json(verts_c, faces_c, max_precision=3)

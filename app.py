@@ -149,11 +149,11 @@ def upload():
     # generate a quick low-res mesh for immediate viewing
     vol_low, sp_low = resample_to_target(volume, spacing, target_max_dim=96)
     
-    # === INÍCIO DO TRATAMENTO DE ERRO ROBUSTO (CORREÇÃO) ===
+    # === TRATAMENTO DE ERRO ROBUSTO PARA MARCHING CUBES ===
     try:
         verts, faces = generate_mesh(vol_low, sp_low, threshold=0.5)
     except Exception as e:
-        print(f"Marching Cubes L-1 (96) failed for {case_id}: {e}. Retrying with Tiny (64)...")
+        print(f"Marching Cubes L-1 (96/0.5) failed for {case_id}: {e}. Retrying with Tiny (64) and aggressive threshold...")
         # Fallback 1: Dimensões menores (64)
         vol_tiny, sp_tiny = resample_to_target(volume, spacing, target_max_dim=64)
         
